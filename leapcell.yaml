@@ -1,0 +1,13 @@
+# F1 Bot Leapcell Configuration
+# Fixed version to resolve deployment errors
+
+runtime: python
+build_command: pip install -r requirements.txt
+start_command: gunicorn -w 1 -b :8080 app:app
+port: 8080
+
+# Alternative configuration using Dockerfile:
+# runtime: docker
+# build_command: docker build -t f1-bot .
+# start_command: docker run -p 8080:8080 f1-bot
+# port: 8080

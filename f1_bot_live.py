@@ -22,7 +22,6 @@ logging.basicConfig(
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("bot.log", mode="a"),
     ],
 )
 logger = logging.getLogger(__name__)

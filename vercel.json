@@ -1,24 +1,20 @@
 {
-    "version": 2,
-    "name": "f1-bot-vercel",
-    "functions": {
-        "app.py": {
-            "runtime": "@vercel/python",
-            "maxDuration": 300
-        }
-    },
-    "routes": [
-        {
-            "src": "/",
-            "dest": "app.py"
-        },
-        {
-            "src": "/health",
-            "dest": "app.py"
-        },
-        {
-            "src": "/webhook",
-            "dest": "app.py"
-        }
-    ]
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ],
+  "functions": {
+    "app.py": {
+      "runtime": "python3.11"
+    }
+  }
 }

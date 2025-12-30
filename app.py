@@ -1,6 +1,6 @@
 """
-F1 Telegram Bot - Vercel Version with Live Timing
-Main Flask application for Vercel deployment with enhanced logging
+F1 Telegram Bot - Leapcell Version with Live Timing
+Main Flask application for Leapcell deployment with enhanced logging
 FINAL WORKING VERSION with thread-safe queue
 """
 
@@ -31,13 +31,12 @@ from f1_bot_live import (
     playstream_cmd,
 )
 
-# Configure enhanced logging for Vercel
+# Configure enhanced logging for Leapcell
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("bot.log", mode="a"),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -173,13 +172,13 @@ def setup_bot():
 
 @app.route("/")
 def home():
-    """Health check endpoint for Vercel"""
+    """Health check endpoint for Leapcell"""
     logger.info("Health check requested")
     return {
         "status": "F1 Telegram Bot is running!",
         "version": "1.0.2",
         "timestamp": "2025-12-29T13:16:00Z",
-        "deployment": "Vercel",
+        "deployment": "Leapcell",
         "live_timing": "enabled",
         "logging": "enhanced",
         "async_fix": "worker_thread_queue",
@@ -193,7 +192,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "F1 Telegram Bot",
-        "deployment": "Vercel",
+        "deployment": "Leapcell",
         "live_timing": "enabled",
     }
 

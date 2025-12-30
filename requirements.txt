@@ -1,10 +1,13 @@
-# F1 Telegram Bot - Vercel Requirements
-# Optimized for Vercel serverless deployment
+# F1 Telegram Bot - Leapcell Requirements
+# Optimized for Leapcell serverless deployment
 
 # Core dependencies
 python-telegram-bot==20.7
 flask==3.0.3
 requests==2.32.3
+
+# WSGI server for Leapcell production deployment
+gunicorn==21.2.0
 
 # Optional but recommended for better performance
 python-dotenv==1.0.1
@@ -12,5 +15,5 @@ python-dotenv==1.0.1
 # Flask async support for webhook processing
 flask[async]==3.0.3
 
-# Note: Playwright is not included as live timing is disabled in Vercel version
+# Note: Playwright is not included as live timing is disabled in Leapcell version
 # to reduce deployment complexity and cold start times
