@@ -274,6 +274,11 @@ def webhook():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
+                # Initialize the bot application first
+                logger.info("Initializing bot application...")
+                loop.run_until_complete(BOT_APP.initialize())
+                logger.info("Bot application initialized, processing update...")
+                
                 # Process the update directly
                 loop.run_until_complete(BOT_APP.process_update(update))
                 update_id = getattr(update, 'update_id', 'unknown') if update else 'unknown'
