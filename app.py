@@ -197,6 +197,35 @@ def health_check():
     }
 
 
+@app.route("/test-webhook", methods=["GET", "POST"])
+def test_webhook():
+    """Test webhook endpoint for debugging"""
+    logger.info(f"Test webhook called with method: {request.method}")
+    
+    if request.method == "GET":
+        return jsonify({
+            "status": "test_webhook_working",
+            "message": "Webhook endpoint is accessible",
+            "bot_token_set": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
+            "deployment": "Leapcell"
+        })
+    
+    elif request.method == "POST":
+        try:
+            json_data = request.get_json(force=True)
+            logger.info(f"Test webhook received data: {json_data}")
+            return jsonify({
+                "status": "test_webhook_received",
+                "message": "Webhook test successful",
+                "received_data": json_data
+            })
+        except Exception as e:
+            logger.error(f"Error in test webhook: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 400
+    
+    return jsonify({"status": "unknown_method", "message": "Method not supported"}), 405
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     """Telegram webhook endpoint with enhanced logging"""
@@ -215,15 +244,21 @@ def webhook():
         logger.info(f"Parsed JSON data: {json_data}")
         logger.info(f"JSON data type: {type(json_data)}")
 
-        # Create update object
+        # Initialize bot if not already done
         if BOT_APP is None:
-            logger.error("Bot application not initialized")
-            return jsonify({"error": "Bot not initialized"}), 500
+            logger.info("Bot application not initialized, initializing now...")
+            BOT_APP = setup_bot()
+            if BOT_APP is None:
+                logger.error("Failed to initialize bot application")
+                return jsonify({"error": "Bot initialization failed"}), 500
+            logger.info("Bot application initialized successfully")
 
+        # Create update object
         update = Update.de_json(json_data, BOT_APP.bot)
-        logger.info(
-            f"Received update from user: {update.effective_user.id if update.effective_user else 'unknown'}"
-        )
+        user_id = "unknown"
+        if update and hasattr(update, 'effective_user') and update.effective_user:
+            user_id = str(update.effective_user.id)
+        logger.info(f"Received update from user: {user_id}")
         logger.info(f"Update type: {type(update)}")
 
         # Queue the update for processing in the worker thread
