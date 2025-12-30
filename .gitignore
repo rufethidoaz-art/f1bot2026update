@@ -1,4 +1,4 @@
-# F1 Telegram Bot - Vercel Version
+# F1 Telegram Bot
 __pycache__/
 *.py[cod]
 *$py.class
@@ -52,5 +52,6 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Vercel specific
+# Platform specific
 .vercel/
+.leapcell/

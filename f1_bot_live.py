@@ -1,6 +1,6 @@
 """
-F1 Telegram Bot - Live Timing Version for Vercel
-Enhanced version with live timing functionality optimized for Vercel
+F1 Telegram Bot - Live Timing Version
+Enhanced version with live timing functionality
 """
 
 import os
@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from telegram import Update, Message, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-# Configure enhanced logging for Vercel
+# Configure enhanced logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,

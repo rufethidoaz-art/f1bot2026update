@@ -15,8 +15,8 @@ To set up the webhook for your bot, use one of these methods:
 1. In Telegram, message **@BotFather**
 2. Send the command: `/setwebhook`
 3. When prompted, enter your webhook URL:
-   - **For local testing with ngrok:** `https://kam-schizocarpous-sondra.ngrok-free.dev/webhook`
-   - **For Vercel deployment:** `https://your-project-name.vercel.app/webhook`
+   - **For local testing with ngrok:** `https://your-ngrok-url.ngrok-free.dev/webhook`
+   - **For Leapcell deployment:** `https://your-leapcell-app-url/webhook`
 
 #### Method 2: Using curl command
 ```bash
@@ -26,7 +26,7 @@ curl -X POST https://api.telegram.org/botYOUR_BOT_TOKEN8460437666:AAHq-XBtLs40zv
 Replace `YOUR_BOT_TOKEN` with your actual bot token.
 
 ### 3. Update Environment Variables
-1. Open the `.env` file in your F1-bot-vercel directory
+1. Open the `.env` file in your project directory
 2. Replace `your_bot_token_here` with your actual bot token:
    ```
    TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz1234567890
@@ -100,11 +100,11 @@ Choose your bot and select "Disable"
 - Check that your bot is in the correct privacy mode
 - Verify your server is processing webhook requests
 
-### 7. For Vercel Deployment
+### 7. For Leapcell Deployment
 
-When you deploy to Vercel:
-1. Set the webhook to your Vercel URL: `https://your-project-name.vercel.app/webhook`
-2. Add your bot token as an environment variable in Vercel dashboard
+When you deploy to Leapcell:
+1. Set the webhook to your Leapcell URL: `https://your-leapcell-app-url/webhook`
+2. Add your bot token as an environment variable in Leapcell dashboard
 3. Test the deployed bot with the same commands
 
 ### 8. Security Notes

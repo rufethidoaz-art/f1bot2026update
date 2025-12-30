@@ -1,6 +1,6 @@
 """
-F1 Telegram Bot - Clean Vercel Version
-Simplified version optimized for Vercel serverless deployment
+F1 Telegram Bot - Clean Version
+Simplified version optimized for serverless deployment
 """
 
 import os
