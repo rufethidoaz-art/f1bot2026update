@@ -70,7 +70,7 @@ TRANSLATIONS = {
     "race_day": "Bazar (Yarış)",
     "weather_unavailable": "🌦️ Bu yer üçün hava məlumatları mövcud deyil.",
     "no_live_data": "❌ Canlı vaxt məlumatları mövcud deyil\n\nSon nəticələr üçün /lastrace istifadə edin",
-    "live_not_available": "❌ Canlı vaxt mövcud deyil\n\nchromium quraşdırmaq üçün: pip install playwright && playwright install chromium",
+    "live_not_available": "❌ Canlı vaxt mövcud deyil\n\nSon nəticələr üçün /lastrace istifadə edin",
     "available_streams": "🎦 *Mövcud Yayımlar*",
     "tap_to_open": "Açmaq üçün toxunun:",
     "no_streams": "❌ Yayım yoxdur.\n\nƏlavə: /addstream Ad | URL",
