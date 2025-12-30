@@ -268,28 +268,32 @@ def webhook():
             if not BOT_APP:
                 logger.error("Bot application still not initialized")
                 return jsonify({"error": "Bot not initialized"}), 500
-            
-            # Run the update processing in the event loop
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # Initialize the bot application first
-                logger.info("Initializing bot application...")
-                loop.run_until_complete(BOT_APP.initialize())
-                logger.info("Bot application initialized, processing update...")
-                
-                # Process the update directly
-                loop.run_until_complete(BOT_APP.process_update(update))
-                update_id = getattr(update, 'update_id', 'unknown') if update else 'unknown'
-                logger.info(f"Successfully processed update {update_id}")
-                return jsonify({"status": "ok", "message": "Update processed successfully"}), 200
-            except Exception as e:
-                logger.error(f"Error processing update: {e}")
-                return jsonify({"status": "error", "message": str(e)}), 500
-            finally:
-                loop.close()
-                
+
+            # Use asyncio.run() for cleaner event loop management
+            async def process_update_async():
+                try:
+                    # Initialize the bot application first (only if not already initialized)
+                    if not hasattr(BOT_APP, '_initialized') or not BOT_APP._initialized:
+                        logger.info("Initializing bot application...")
+                        await BOT_APP.initialize()
+                        BOT_APP._initialized = True
+                        logger.info("Bot application initialized")
+
+                    # Process the update directly
+                    await BOT_APP.process_update(update)
+                    update_id = getattr(update, 'update_id', 'unknown') if update else 'unknown'
+                    logger.info(f"Successfully processed update {update_id}")
+                    return {"status": "ok", "message": "Update processed successfully"}
+                except Exception as e:
+                    logger.error(f"Error processing update: {e}")
+                    return {"status": "error", "message": str(e)}
+
+            # Run the async function
+            result = asyncio.run(process_update_async())
+            if result["status"] == "error":
+                return jsonify(result), 500
+            return jsonify(result), 200
+
         except Exception as e:
             logger.error(f"Error in direct update processing: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
