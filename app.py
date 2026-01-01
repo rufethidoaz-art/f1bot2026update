@@ -7,8 +7,6 @@ import os
 import sys
 import logging
 import asyncio
-from queue import Queue
-from threading import Thread
 from flask import Flask, request, jsonify
 from telegram import Update, Bot, Message
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -34,12 +32,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 BOT_APP = None
-update_queue = Queue()
 WEBHOOK_SET = False  # CRITICAL: Prevents repeated webhook attempts
 
 # Get webhook URL from environment variable
 def get_webhook_url():
-    """Get webhook URL from environment or use the async domain"""
+    """Get webhook URL from environment or use the default domain"""
     return os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-q9iv49mppvjya4t35r.leapcell.dev/webhook")
 
 def get_bot_token():
@@ -70,69 +67,6 @@ def get_bot_token():
             logger.error(f"Error reading .env file: {e}")
     return None
 
-def process_updates_background():
-    """Background thread to process updates asynchronously with event loop recovery"""
-    try:
-        # Create new event loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        async def process_item(item):
-            if item is None:
-                loop.stop()
-                return
-            bot_app, update, update_id = item
-            try:
-                await process_update_async(bot_app, update, update_id)
-                logger.info(f"✅ Update {update_id} processed successfully")
-            except Exception as e:
-                logger.error(f"❌ Error processing update {update_id}: {e}")
-                import traceback
-                logger.error(f"Full traceback: {traceback.format_exc()}")
-        
-        def queue_watcher():
-            while True:
-                item = update_queue.get()
-                try:
-                    # Run coroutine in the event loop
-                    future = asyncio.run_coroutine_threadsafe(process_item(item), loop)
-                    future.result()  # Wait for completion
-                except RuntimeError as e:
-                    if "Event loop is closed" in str(e):
-                        logger.warning("Event loop closed, creating new one")
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        # Re-run the failed item
-                        future = asyncio.run_coroutine_threadsafe(process_item(item), loop)
-                        future.result()
-                    else:
-                        raise
-                except Exception as e:
-                    logger.error(f"❌ Background processing failed: {e}")
-                    import traceback
-                    logger.error(f"Full traceback: {traceback.format_exc()}")
-        
-        watcher_thread = Thread(target=queue_watcher, daemon=True)
-        watcher_thread.start()
-        
-        # Run loop forever
-        try:
-            loop.run_forever()
-        except Exception as e:
-            logger.error(f"❌ Event loop crashed: {e}")
-            # Restart the background processor
-            import time
-            time.sleep(5)
-            process_updates_background()
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to start background processor: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        # Restart after delay
-        import time
-        time.sleep(10)
-        process_updates_background()
 
 async def setup_bot():
     """Initialize the Telegram bot application"""
@@ -250,15 +184,6 @@ async def initialize_bot_app():
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
-async def process_update_async(bot_app, update, update_id):
-    """Process update asynchronously"""
-    try:
-        await bot_app.process_update(update)
-        logger.info(f"✅ Update {update_id} processed successfully")
-    except Exception as e:
-        logger.error(f"❌ Error processing update {update_id}: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
 
 @app.route("/")
 def home():
@@ -286,11 +211,10 @@ def webhook():
     if not json_data:
         logger.warning("Invalid JSON received")
         return jsonify({"status": "ok"}), 200
-    
+
     update_id = json_data.get("update_id", "unknown")
     logger.info(f"📥 Update {update_id} received")
-    logger.info(f"Update data keys: {list(json_data.keys())}")
-    
+
     try:
         if BOT_APP is None:
             logger.info("Bot not initialized, setting up...")
@@ -298,26 +222,27 @@ def webhook():
             if not success:
                 logger.error("❌ Failed to initialize bot")
                 return jsonify({"status": "error", "message": "Bot initialization failed - check logs for details"}), 500
-        
+
         bot_app = BOT_APP
         if bot_app is None or not hasattr(bot_app, "bot") or bot_app.bot is None:
             logger.error("Bot app or bot is None")
             return jsonify({"status": "ok"}), 200
-        
+
         bot = bot_app.bot
         update = Update.de_json(json_data, bot)
         if update is None:
             logger.warning("Failed to create update object")
             return jsonify({"status": "ok"}), 200
-        
-        update_queue.put((bot_app, update, update_id))
-        logger.info(f"📤 Update {update_id} queued for processing")
-        
+
+        # Process update synchronously using asyncio.run
+        asyncio.run(process_update_async(bot_app, update, update_id))
+        logger.info(f"✅ Update {update_id} processed successfully")
+
     except Exception as e:
         logger.error(f"❌ Error processing update {update_id}: {e}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
-    
+
     return jsonify({"status": "ok"}), 200
 
 @app.route("/debug")
@@ -389,7 +314,7 @@ async def set_webhook_manually(webhook_url):
     if BOT_APP is None:
         logger.warning("Bot not initialized, cannot set webhook")
         return False
-    
+
     try:
         bot = BOT_APP.bot
         logger.info(f"Setting webhook to: {webhook_url}")
@@ -408,10 +333,20 @@ async def set_webhook_manually(webhook_url):
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
+async def process_update_async(bot_app, update, update_id):
+    """Process update asynchronously"""
+    try:
+        await bot_app.process_update(update)
+        logger.info(f"✅ Update {update_id} processed successfully")
+    except Exception as e:
+        logger.error(f"❌ Error processing update {update_id}: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+
 def main():
     """Main initialization function"""
     logger.info("🚀 Starting F1 Telegram Bot initialization...")
-    
+
     # Initialize bot on startup
     try:
         success = asyncio.run(initialize_bot_app())
@@ -421,16 +356,6 @@ def main():
             logger.warning("⚠️ Bot initialization failed on startup - will try on first request")
     except Exception as e:
         logger.error(f"❌ Startup initialization error: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-     
-    # Start background processing thread
-    try:
-        background_thread = Thread(target=process_updates_background, daemon=True)
-        background_thread.start()
-        logger.info("📋 Background processing thread started")
-    except Exception as e:
-        logger.error(f"❌ Failed to start background thread: {e}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
 
