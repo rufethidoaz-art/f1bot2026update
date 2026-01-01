@@ -35,6 +35,7 @@ app = Flask(__name__)
 
 BOT_APP = None
 update_queue = Queue()
+WEBHOOK_SET = False  # CRITICAL: Prevents repeated webhook attempts
 
 # Get webhook URL from environment variable
 def get_webhook_url():
@@ -130,36 +131,81 @@ async def setup_bot():
         return None
 
 async def initialize_bot_app():
-    """Initialize bot application and set webhook"""
-    global BOT_APP
+    """Initialize bot application and set webhook with flood control handling"""
+    global BOT_APP, WEBHOOK_SET
+    
+    # CRITICAL: Skip initialization if already done
+    if WEBHOOK_SET:
+        logger.info("✅ Bot already initialized, skipping webhook setup")
+        return True
+    
     try:
+        # Setup bot application
         bot_app = await setup_bot()
-        if bot_app:
-            await bot_app.initialize()
-            BOT_APP = bot_app
-            logger.info("✅ Bot application initialized successfully")
+        if not bot_app:
+            logger.error("❌ Bot setup failed - no bot application")
+            return False
             
-            # Set webhook after bot is initialized
-            webhook_url = get_webhook_url()
-            logger.info(f"Setting webhook to: {webhook_url}")
+        await bot_app.initialize()
+        BOT_APP = bot_app
+        logger.info("✅ Bot application initialized successfully")
+        
+        # CRITICAL: Check if webhook is already set BEFORE trying to set it
+        webhook_url = get_webhook_url()
+        bot = bot_app.bot
+        
+        try:
+            # Check current webhook status
+            webhook_info = await bot.get_webhook_info()
+            current_url = webhook_info.url
             
-            bot = bot_app.bot
-            result = await bot.set_webhook(url=webhook_url)
-            if result:
-                logger.info(f"✅ Webhook set successfully to: {webhook_url}")
-                # Verify webhook is set
-                webhook_info = await bot.get_webhook_info()
-                logger.info(f"Webhook verification: {webhook_info}")
+            if current_url and current_url == webhook_url:
+                logger.info(f"✅ Webhook already set to correct URL: {webhook_url}")
+                WEBHOOK_SET = True
+                return True
+            elif current_url:
+                logger.info(f"🔄 Webhook exists but wrong URL. Current: {current_url}, Needed: {webhook_url}")
             else:
-                logger.warning("⚠️ Webhook set returned False")
+                logger.info("🆕 No webhook set, will set new one")
+                
+        except Exception as e:
+            if "webhook is not set" in str(e).lower():
+                logger.info("🆕 No existing webhook found")
+            else:
+                logger.warning(f"⚠️ Could not check webhook status: {e}")
+         
+        # CRITICAL: Only set webhook if not already set
+        try:
+            logger.info(f"🔧 Setting webhook to: {webhook_url}")
+            result = await bot.set_webhook(url=webhook_url)
+             
+            if result:
+                WEBHOOK_SET = True
+                logger.info(f"✅ Webhook successfully set to: {webhook_url}")
+                return True
+            else:
+                logger.error("❌ Webhook set returned False")
+                return False
+                 
+        except Exception as e:
+            # CRITICAL: Handle flood control gracefully
+            error_str = str(e)
+            if "Retry after" in error_str or "Flood control" in error_str:
+                logger.warning(f"⚠️ Telegram flood control activated! {e}")
+                logger.warning("⏳ Waiting before retry...")
+                await asyncio.sleep(10)  # Wait 10 seconds for flood control
+                return await initialize_bot_app()  # Retry after delay
+            else:
+                logger.error(f"❌ Failed to set webhook: {e}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+                return False
             
-            return True
     except Exception as e:
-        logger.error(f"❌ Failed to initialize bot: {e}")
+        logger.error(f"❌ Bot initialization failed: {e}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
-        BOT_APP = None
-    return False
+        return False
 
 async def process_update_async(bot_app, update, update_id):
     """Process update asynchronously"""
