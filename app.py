@@ -37,7 +37,7 @@ WEBHOOK_SET = False  # CRITICAL: Prevents repeated webhook attempts
 # Get webhook URL from environment variable
 def get_webhook_url():
     """Get webhook URL from environment or use the default domain"""
-    return os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-hx4ic2pa.leapcell.dev/webhook")
+    return os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-7wm14mbj.leapcell.dev/webhook")
 
 def get_bot_token():
     """Get bot token from environment or .env file"""
