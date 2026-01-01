@@ -217,6 +217,14 @@ def get_driver_data(season=None):
     if season is None:
         now = datetime.now()
         season = now.year if now.month > 3 else now.year - 1
+        logger.info(f"get_driver_data: Calculated season = {season} (month={now.month}, year={now.year})")
+        # Log for 2026 season preparation
+        if season == 2026 or now.year == 2026:
+            logger.info(f"DEBUG: Fetching data for 2026 season - ensure API has new drivers/teams")
+            logger.info(f"DEBUG: Current date: {now}, calculated season: {season}")
+            logger.info(f"DEBUG: Month check: {now.month} > 3 = {now.month > 3}")
+            if now.month <= 3:
+                logger.warning(f"WARNING: Early {now.year} - using {season} data. Verify if {now.year} season data is available in API")
 
     cache_key = f"drivers_{season}"
     if cache_key in DRIVER_DATA_CACHE:
@@ -271,6 +279,7 @@ def get_constructor_data(season=None):
     if season is None:
         now = datetime.now()
         season = now.year if now.month > 3 else now.year - 1
+        logger.info(f"get_constructor_data: Calculated season = {season} (month={now.month}, year={now.year})")
 
     cache_key = f"constructors_{season}"
     if cache_key in CONSTRUCTOR_DATA_CACHE:
@@ -1853,13 +1862,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "live_refresh":
             # Refresh live timing data using Playwright
             try:
-                from f1_playwright_scraper import get_optimized_live_timing, format_timing_data_for_telegram
-
-                live_data = await get_optimized_live_timing()
+                try:
+                    from f1_playwright_scraper import get_optimized_live_timing, format_timing_data_for_telegram
+                    PLAYWRIGHT_AVAILABLE = True
+                except ImportError as e:
+                    logger.warning(f"Playwright not available: {e}")
+                    PLAYWRIGHT_AVAILABLE = False
+                    get_optimized_live_timing = None
+                    format_timing_data_for_telegram = None
+    
+                if PLAYWRIGHT_AVAILABLE and get_optimized_live_timing:
+                    live_data = await get_optimized_live_timing()
+                else:
+                    live_data = None
                 if not live_data:
                     message = "❌ Canlı vaxt məlumatları mövcud deyil\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium"
                 else:
-                    message = format_timing_data_for_telegram(live_data)
+                    if PLAYWRIGHT_AVAILABLE and format_timing_data_for_telegram:
+                        message = format_timing_data_for_telegram(live_data)
+                    else:
+                        message = "❌ Canlı vaxt məlumatları mövcud deyil\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium"
 
                     # Add refresh button again
                     keyboard = [

@@ -35,25 +35,51 @@ app = Flask(__name__)
 
 BOT_APP = None
 
+# Initialize bot on module import (works with Gunicorn)
+async def initialize_bot_on_startup():
+    """Initialize bot when module is imported"""
+    global BOT_APP
+    logger.info("🚀 Starting bot initialization on module import...")
+    try:
+        success = await initialize_bot_app()
+        if success:
+            logger.info("✅ Bot initialized successfully on startup!")
+        else:
+            logger.warning("⚠️ Bot initialization failed on startup")
+    except Exception as e:
+        logger.error(f"❌ Startup initialization error: {e}")
+
 def get_bot_token():
+    """Get bot token from environment or .env file"""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if token:
+        return token
     try:
         from dotenv import load_dotenv
         load_dotenv(override=False)
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        if token:
+            return token
     except ImportError:
-        if not os.getenv("TELEGRAM_BOT_TOKEN") and os.path.exists(".env"):
-            try:
-                with open(".env", "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#") and "=" in line:
-                            key, value = line.split("=", 1)
-                            key = key.strip()
-                            value = value.strip().strip('"').strip("'")
-                            if not os.getenv(key):
-                                os.environ[key] = value
-            except Exception as e:
-                logger.error(f"Error reading .env file: {e}")
-    return os.getenv("TELEGRAM_BOT_TOKEN")
+        pass
+    if os.path.exists(".env"):
+        try:
+            with open(".env", "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key == "TELEGRAM_BOT_TOKEN" and not os.getenv(key):
+                            return value
+        except Exception as e:
+            logger.error(f"Error reading .env file: {e}")
+    return None
+
+# Run initialization in main process (not in Gunicorn workers)
+if __name__ == "__main__":
+    asyncio.run(initialize_bot_on_startup())
 
 async def setup_bot():
     logger.info("=== BOT INITIALIZATION START ===")
