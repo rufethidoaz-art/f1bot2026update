@@ -141,6 +141,9 @@ async def set_webhook(webhook_url):
         result = await bot.set_webhook(url=webhook_url)
         if result:
             logger.info(f"✅ Webhook set to: {webhook_url}")
+            # Verify webhook is set
+            webhook_info = await bot.get_webhook_info()
+            logger.info(f"Webhook info: {webhook_info}")
         else:
             logger.warning("⚠️ Webhook set returned False")
         return True
@@ -269,6 +272,23 @@ def webhook_info():
         "webhook_url": webhook_url,
         "bot_initialized": BOT_APP is not None,
     })
+
+@app.route("/set-webhook", methods=["POST"])
+def manual_set_webhook():
+    """Endpoint to manually set the webhook"""
+    global BOT_APP
+    if BOT_APP is None:
+        return jsonify({"status": "error", "message": "Bot not initialized"}), 500
+    try:
+        webhook_url = os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-rcgm3gyx.leapcell.dev/webhook")
+        success = asyncio.run(set_webhook(webhook_url))
+        if success:
+            return jsonify({"status": "success", "webhook_url": webhook_url}), 200
+        else:
+            return jsonify({"status": "error", "message": "Failed to set webhook"}), 500
+    except Exception as e:
+        logger.error(f"❌ Failed to set webhook manually: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     try:
