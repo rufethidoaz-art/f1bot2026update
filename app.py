@@ -137,11 +137,17 @@ async def set_webhook(webhook_url):
         return False
     try:
         bot = BOT_APP.bot
-        await bot.set_webhook(url=webhook_url)
-        logger.info(f"✅ Webhook set to: {webhook_url}")
+        logger.info(f"Setting webhook to: {webhook_url}")
+        result = await bot.set_webhook(url=webhook_url)
+        if result:
+            logger.info(f"✅ Webhook set to: {webhook_url}")
+        else:
+            logger.warning("⚠️ Webhook set returned False")
         return True
     except Exception as e:
         logger.error(f"❌ Failed to set webhook: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
 update_queue = Queue()
@@ -202,6 +208,7 @@ def webhook():
         return jsonify({"status": "ok"}), 200
     update_id = json_data.get("update_id", "unknown")
     logger.info(f"📥 Update {update_id} received")
+    logger.info(f"Update data: {json_data}")
     try:
         if BOT_APP is None:
             logger.info("Bot not initialized, setting up...")
@@ -210,6 +217,7 @@ def webhook():
                 return jsonify({"status": "ok", "message": "Bot init failed"}), 200
         bot_app = BOT_APP
         if bot_app is None or not hasattr(bot_app, "bot") or bot_app.bot is None:
+            logger.error("Bot app or bot is None")
             return jsonify({"status": "ok"}), 200
         bot = bot_app.bot
         update = Update.de_json(json_data, bot)
@@ -220,6 +228,8 @@ def webhook():
         logger.info(f"📤 Update {update_id} queued for processing")
     except Exception as e:
         logger.error(f"❌ Error processing update {update_id}: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
     return jsonify({"status": "ok"}), 200
 
 @app.route("/debug")
