@@ -12,6 +12,7 @@ env:
   TELEGRAM_BOT_TOKEN: your_bot_token_here
   PORT: 8080
   PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright
+  WEBHOOK_URL: https://f1bot2026update-rufethidoaz6750-rcgm3gyx.leapcell.dev/webhook
 
 # Health check configuration
 health_check:

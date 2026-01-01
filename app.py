@@ -129,6 +129,21 @@ async def initialize_bot_app():
         BOT_APP = None
     return False
 
+async def set_webhook(webhook_url):
+    """Set the webhook URL for the bot"""
+    global BOT_APP
+    if BOT_APP is None:
+        logger.warning("Bot not initialized, cannot set webhook")
+        return False
+    try:
+        bot = BOT_APP.bot
+        await bot.set_webhook(url=webhook_url)
+        logger.info(f"✅ Webhook set to: {webhook_url}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to set webhook: {e}")
+        return False
+
 update_queue = Queue()
 
 async def process_update_async(bot_app, update, update_id):
@@ -223,12 +238,26 @@ def debug():
     except Exception as e:
         import_status["telegram"] = f"ERROR: {e}"
 
+    webhook_info = {
+        "webhook_url": os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-rcgm3gyx.leapcell.dev/webhook")
+    }
+
     return jsonify({
         "bot_token_set": bool(token),
         "bot_initialized": BOT_APP is not None,
         "version": "1.1.0",
         "imports": import_status,
         "python_version": f"{__import__('sys').version_info.major}.{__import__('sys').version_info.minor}",
+        "webhook": webhook_info,
+    })
+
+@app.route("/webhook-info")
+def webhook_info():
+    """Endpoint to check webhook status"""
+    webhook_url = os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-rcgm3gyx.leapcell.dev/webhook")
+    return jsonify({
+        "webhook_url": webhook_url,
+        "bot_initialized": BOT_APP is not None,
     })
 
 if __name__ == "__main__":
@@ -236,6 +265,9 @@ if __name__ == "__main__":
         success = asyncio.run(initialize_bot_app())
         if success:
             logger.info("✅ Bot initialized on startup - commands will work on first try!")
+            # Set webhook URL
+            webhook_url = os.getenv("WEBHOOK_URL", "https://f1bot2026update-rufethidoaz6750-rcgm3gyx.leapcell.dev/webhook")
+            asyncio.run(set_webhook(webhook_url))
         else:
             logger.warning("⚠️ Bot initialization failed - will try on first request")
     except Exception as e:
