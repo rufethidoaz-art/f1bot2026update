@@ -17,11 +17,8 @@ from telegram import Update, Message, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 # Configure the event loop policy to avoid issues with nested event loops
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass
+# Note: nest_asyncio is removed as it can cause issues in serverless environments
+# Each request should use its own event loop via asyncio.run()
 
 # Ensure proper event loop management
 import asyncio
@@ -59,17 +56,20 @@ logger = logging.getLogger(__name__)
 import httpx
 from telegram.request import HTTPXRequest
 
-# Create a custom HTTPX client with increased connection pool limits
-custom_client = httpx.AsyncClient(
-    limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
-    timeout=httpx.Timeout(30.0, connect=10.0, read=30.0, write=30.0),
-)
-
 # Configure the Telegram bot to use the custom HTTPX client
 class CustomHTTPXRequest(HTTPXRequest):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._client = custom_client
+        # Create a new client for each request to avoid event loop conflicts
+        self._client = httpx.AsyncClient(
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
+            timeout=httpx.Timeout(30.0, connect=10.0, read=30.0, write=30.0),
+        )
+
+    async def close(self):
+        """Close the HTTP client"""
+        if hasattr(self, '_client') and self._client:
+            await self._client.aclose()
 
 # Azerbaijani translations (simplified)
 TRANSLATIONS = {

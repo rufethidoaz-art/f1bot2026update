@@ -45,6 +45,11 @@ LOOP_LOCK = threading.Lock()  # Prevent concurrent loop creation
 # Store the main event loop to prevent conflicts
 _MAIN_EVENT_LOOP = None
 
+# Track processed update IDs to prevent duplicate processing
+PROCESSED_UPDATES = set()
+UPDATE_LOCK = threading.Lock()  # Thread-safe access to processed updates
+MAX_PROCESSED_UPDATES = 1000  # Keep only recent updates to prevent memory issues
+
 def get_event_loop():
     """Get the main event loop, creating it if necessary"""
     global _MAIN_EVENT_LOOP
@@ -52,6 +57,20 @@ def get_event_loop():
         _MAIN_EVENT_LOOP = asyncio.new_event_loop()
         asyncio.set_event_loop(_MAIN_EVENT_LOOP)
     return _MAIN_EVENT_LOOP
+
+def is_update_processed(update_id):
+    """Check if update has already been processed"""
+    with UPDATE_LOCK:
+        return update_id in PROCESSED_UPDATES
+
+def mark_update_processed(update_id):
+    """Mark update as processed"""
+    with UPDATE_LOCK:
+        PROCESSED_UPDATES.add(update_id)
+        # Keep only recent updates to prevent memory issues
+        if len(PROCESSED_UPDATES) > MAX_PROCESSED_UPDATES:
+            # Remove oldest updates (this is a simple approach)
+            PROCESSED_UPDATES.clear()
 
 def start_update_loop():
     """Start a persistent event loop in a background thread for processing updates"""
@@ -331,6 +350,14 @@ def webhook():
     update_id = json_data.get("update_id", "unknown")
     logger.info(f"📥 Update {update_id} received")
 
+    # Check for duplicate updates to prevent multiple processing
+    if is_update_processed(update_id):
+        logger.info(f"⚠️ Duplicate update {update_id} detected, skipping")
+        return jsonify({"status": "ok"}), 200
+
+    # Mark update as being processed
+    mark_update_processed(update_id)
+
     try:
         if BOT_APP is None:
             logger.info("Bot not initialized, setting up...")
@@ -414,6 +441,16 @@ async def process_update_isolated(bot_app, update, update_id):
             except Exception as retry_e:
                 logger.error(f"❌ Retry failed for update {update_id}: {retry_e}")
         raise
+    finally:
+        # Ensure HTTP clients are properly closed
+        try:
+            if hasattr(bot_app, 'bot') and hasattr(bot_app.bot, 'request') and hasattr(bot_app.bot.request, 'close'):
+                await bot_app.bot.request.close()
+        except (AttributeError, TypeError):
+            # close method may not exist on all request types
+            pass
+        except Exception as close_e:
+            logger.warning(f"Error closing HTTP client: {close_e}")
 
 @app.route("/debug")
 def debug():
