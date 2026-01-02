@@ -132,6 +132,10 @@ COUNTRY_FLAGS = {
     "Spain": "🇪🇸",
     "Australia": "🇦🇺",
     "Netherlands": "🇳🇱",
+    "Holland": "🇳🇱",  # Alternative name
+    "The Netherlands": "🇳🇱",  # Full name
+    "Netherland": "🇳🇱",  # Common typo
+    "Nederland": "🇳🇱",  # Dutch spelling
     "France": "🇫🇷",
     "Germany": "🇩🇪",
     "Austria": "🇦🇹",
