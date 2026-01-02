@@ -16,12 +16,12 @@ from f1_bot_live import (
     start,
     show_menu,
     button_handler,
-    standings_cmd,
-    constructors_cmd,
-    lastrace_cmd,
-    nextrace_cmd,
     live_cmd,
     CustomHTTPXRequest,
+    get_current_standings,
+    get_constructor_standings,
+    get_last_session_results,
+    get_next_race,
 )
 
 logging.basicConfig(
@@ -50,6 +50,10 @@ _MAIN_EVENT_LOOP = None
 PROCESSED_UPDATES = set()
 UPDATE_LOCK = threading.Lock()  # Thread-safe access to processed updates
 MAX_PROCESSED_UPDATES = 1000  # Keep only recent updates to prevent memory issues
+
+# Message tracking to prevent duplicate processing
+MESSAGE_IDS_TO_DELETE = set()
+MESSAGE_LOCK = threading.Lock()
 
 def get_event_loop():
     """Get the main event loop, creating it if necessary"""
@@ -157,13 +161,34 @@ def submit_update_to_loop(bot_app, update, update_id):
         except Exception as e:
             logger.error(f"Failed to submit update {update_id} to loop: {e}")
 
-    # Fallback: Process directly if loop submission fails
+    # Fallback: Process directly using the main event loop
     logger.warning(f"⚠️ Update loop not available, falling back to direct processing for {update_id}")
     try:
-        # Use asyncio.run to create a new event loop for this request to avoid conflicts
-        asyncio.run(process_update_async(bot_app, update, update_id))
-        logger.info(f"✅ Update {update_id} processed via direct fallback")
-        return True
+        # Get the main event loop
+        loop = get_event_loop()
+        
+        # Run the processing in the event loop
+        if loop.is_running():
+            # If loop is already running, schedule the coroutine
+            future = asyncio.run_coroutine_threadsafe(
+                process_update_isolated(bot_app, update, update_id),
+                loop
+            )
+            # Wait for completion with timeout
+            try:
+                future.result(timeout=10.0)
+                logger.info(f"✅ Update {update_id} processed via direct fallback")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Direct processing timeout for {update_id}: {e}")
+                return False
+        else:
+            # If loop is not running, run it
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(process_update_isolated(bot_app, update, update_id))
+            logger.info(f"✅ Update {update_id} processed via direct fallback")
+            return True
+            
     except Exception as e:
         logger.error(f"❌ Direct processing failed for update {update_id}: {e}")
         return False
@@ -234,13 +259,42 @@ async def setup_bot():
             .concurrent_updates(True)
             .build()
         )
+        
+        # Initialize the application properly
+        await application.initialize()
+        
         logger.info("Application created, adding handlers...")
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("menu", show_menu))
-        application.add_handler(CommandHandler("standings", standings_cmd))
-        application.add_handler(CommandHandler("constructors", constructors_cmd))
-        application.add_handler(CommandHandler("lastrace", lastrace_cmd))
-        application.add_handler(CommandHandler("nextrace", nextrace_cmd))
+        # Create async wrapper functions for the command handlers
+        async def standings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if isinstance(update.message, Message):
+                await update.message.reply_text("⏳ Yüklənir...")
+                message = get_current_standings()
+                await update.message.reply_text(message, parse_mode="Markdown")
+
+        async def constructors_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if isinstance(update.message, Message):
+                await update.message.reply_text("⏳ Yüklənir...")
+                message = get_constructor_standings()
+                await update.message.reply_text(message, parse_mode="Markdown")
+
+        async def lastrace_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if isinstance(update.message, Message):
+                await update.message.reply_text("⏳ Yüklənir...")
+                message = get_last_session_results()
+                await update.message.reply_text(message, parse_mode="Markdown")
+
+        async def nextrace_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if isinstance(update.message, Message):
+                await update.message.reply_text("⏳ Yüklənir...")
+                message = get_next_race()
+                await update.message.reply_text(message, parse_mode="Markdown")
+
+        application.add_handler(CommandHandler("standings", standings_handler))
+        application.add_handler(CommandHandler("constructors", constructors_handler))
+        application.add_handler(CommandHandler("lastrace", lastrace_handler))
+        application.add_handler(CommandHandler("nextrace", nextrace_handler))
         application.add_handler(CommandHandler("live", live_cmd))
         application.add_handler(CallbackQueryHandler(button_handler))
 
@@ -257,34 +311,28 @@ async def initialize_bot_app():
     """Initialize bot application and set webhook with flood control handling"""
     global BOT_APP, WEBHOOK_SET, BOT_INITIALIZED
 
-    # CRITICAL: Skip webhook setup if already done, but allow fresh bot creation
-    if WEBHOOK_SET and BOT_INITIALIZED:
-        logger.info("✅ Webhook already set, creating fresh bot application")
-        # Still create fresh bot app but skip webhook setup
-        bot_app = await setup_bot()
-        if bot_app:
-            BOT_APP = bot_app
-            return True
-        return False
-    
+    # Skip initialization if already done
+    if BOT_INITIALIZED:
+        logger.info("✅ Bot already initialized, reusing existing application")
+        return True
+
     try:
         # Setup bot application
         bot_app = await setup_bot()
         if not bot_app:
             logger.error("❌ Bot setup failed - no bot application")
             return False
-            
+
         await bot_app.initialize()
         BOT_APP = bot_app
         BOT_INITIALIZED = True
         logger.info("✅ Bot application initialized successfully")
 
-        # CRITICAL: Check if webhook is already set BEFORE trying to set it
+        # Set webhook if not already set
         webhook_url = get_webhook_url()
         bot = bot_app.bot
 
         try:
-            # Check current webhook status
             webhook_info = await bot.get_webhook_info()
             current_url = webhook_info.url
 
@@ -303,7 +351,7 @@ async def initialize_bot_app():
             else:
                 logger.warning(f"⚠️ Could not check webhook status: {e}")
 
-        # CRITICAL: Only set webhook if not already set
+        # Set webhook
         try:
             logger.info(f"🔧 Setting webhook to: {webhook_url}")
             result = await bot.set_webhook(url=webhook_url)
@@ -317,19 +365,18 @@ async def initialize_bot_app():
                 return False
 
         except Exception as e:
-            # CRITICAL: Handle flood control gracefully
             error_str = str(e)
             if "Retry after" in error_str or "Flood control" in error_str:
                 logger.warning(f"⚠️ Telegram flood control activated! {e}")
                 logger.warning("⏳ Waiting before retry...")
-                await asyncio.sleep(10)  # Wait 10 seconds for flood control
-                return await initialize_bot_app()  # Retry after delay
+                await asyncio.sleep(10)
+                return await initialize_bot_app()
             else:
                 logger.error(f"❌ Failed to set webhook: {e}")
                 import traceback
                 logger.error(f"Full traceback: {traceback.format_exc()}")
                 return False
-            
+
     except Exception as e:
         logger.error(f"❌ Bot initialization failed: {e}")
         import traceback
@@ -376,12 +423,13 @@ def webhook():
     mark_update_processed(update_id)
 
     try:
-        # Create fresh bot application for each request to avoid event loop conflicts
-        logger.info("Creating fresh bot application for this request...")
-        success = asyncio.run(initialize_bot_app())
-        if not success:
-            logger.error("❌ Failed to initialize bot")
-            return jsonify({"status": "error", "message": "Bot initialization failed - check logs for details"}), 500
+        # Initialize bot application if not already done
+        if BOT_APP is None:
+            logger.info("Initializing bot application...")
+            success = asyncio.run(initialize_bot_app())
+            if not success:
+                logger.error("❌ Failed to initialize bot")
+                return jsonify({"status": "error", "message": "Bot initialization failed"}), 500
 
         bot_app = BOT_APP
         if bot_app is None or not hasattr(bot_app, "bot") or bot_app.bot is None:
@@ -394,9 +442,7 @@ def webhook():
             logger.warning("Failed to create update object")
             return jsonify({"status": "ok"}), 200
 
-        # Process update in background thread to avoid timeout
-        # Telegram expects webhook response within 10 seconds
-        import threading
+        # Process update in background thread with proper event loop handling
         thread = threading.Thread(
             target=process_update_in_background,
             args=(bot_app, update, update_id),
@@ -414,11 +460,28 @@ def webhook():
     return jsonify({"status": "ok"}), 200
 
 def process_update_in_background(bot_app, update, update_id):
-    """Process update in background thread with new event loop"""
+    """Process update in background thread with proper async handling"""
     try:
-        # Use asyncio.run to create a new event loop for each task
-        asyncio.run(process_update_isolated(bot_app, update, update_id))
-        logger.info(f"✅ Update {update_id} processed successfully in background")
+        # Get the main event loop
+        loop = get_event_loop()
+        
+        # Run the processing in the event loop
+        if loop.is_running():
+            # If loop is already running, schedule the coroutine
+            future = asyncio.run_coroutine_threadsafe(
+                process_update_isolated(bot_app, update, update_id),
+                loop
+            )
+            # Wait for completion with timeout
+            try:
+                future.result(timeout=10.0)
+            except Exception as e:
+                logger.error(f"❌ Background processing timeout for {update_id}: {e}")
+        else:
+            # If loop is not running, run it
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(process_update_isolated(bot_app, update, update_id))
+            
     except Exception as e:
         logger.error(f"❌ Error in background processing {update_id}: {e}")
         import traceback
@@ -427,50 +490,53 @@ def process_update_in_background(bot_app, update, update_id):
 async def process_update_isolated(bot_app, update, update_id):
     """Process update in an isolated async context to prevent event loop conflicts"""
     try:
+        # Ensure bot_app is properly initialized
+        if bot_app is None:
+            logger.error(f"❌ Bot app is None for update {update_id}")
+            return
+            
+        # Check if application is initialized
+        if not hasattr(bot_app, '_initialized') or not bot_app._initialized:
+            logger.warning(f"⚠️ Bot app not initialized for update {update_id}, initializing...")
+            try:
+                await bot_app.initialize()
+                logger.info(f"✅ Bot app initialized for update {update_id}")
+            except Exception as init_e:
+                logger.error(f"❌ Failed to initialize bot app for update {update_id}: {init_e}")
+                return
+        
+        # Process the update
         await bot_app.process_update(update)
         logger.info(f"✅ Update {update_id} processed successfully")
+        
     except Exception as e:
         logger.error(f"❌ Error in isolated update processing {update_id}: {e}")
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
+        
         # Handle specific errors
         error_str = str(e)
-        if "Event loop is closed" in error_str or "is bound to a different event loop" in error_str or "cannot enter context" in error_str:
-            logger.warning("Event loop or context issue detected - retrying with new event loop...")
-            # Use asyncio.run to create a new event loop and context
+        if "Event loop is closed" in error_str:
+            logger.warning("Event loop closed error - this should not happen with proper initialization")
+        elif "not initialized" in error_str.lower():
+            logger.warning("Application not initialized - attempting to initialize and retry")
             try:
-                asyncio.run(bot_app.process_update(update))
-                logger.info(f"✅ Update {update_id} processed successfully after loop restart")
+                await bot_app.initialize()
+                await bot_app.process_update(update)
+                logger.info(f"✅ Update {update_id} processed successfully after initialization")
             except Exception as retry_e:
                 logger.error(f"❌ Retry failed for update {update_id}: {retry_e}")
-        elif "Pool timeout" in error_str or "All connections in the connection pool are occupied" in error_str:
-            logger.warning("Connection pool timeout - retrying with new client...")
-            # Restart the bot application with a new HTTP client
-            try:
-                await bot_app.shutdown()
-                bot_app = await setup_bot()
-                if bot_app:
-                    await bot_app.initialize()
-                    await bot_app.process_update(update)
-                    logger.info(f"✅ Update {update_id} processed successfully after client restart")
-                else:
-                    logger.error(f"❌ Failed to restart bot application for update {update_id}")
-            except Exception as retry_e:
-                logger.error(f"❌ Retry failed for update {update_id}: {retry_e}")
-        raise
     finally:
-        # Ensure HTTP clients are properly closed
+        # Clean up HTTP clients to prevent resource leaks
         try:
-            if hasattr(bot_app, 'bot') and hasattr(bot_app.bot, 'request'):
-                request_obj = bot_app.bot.request
-                # Only try to close if it's our custom request type with _client attribute
-                if hasattr(request_obj, '_client') and hasattr(request_obj, 'close'):
-                    await request_obj.close()
-        except (AttributeError, TypeError):
-            # close method may not exist on all request types
+            if bot_app is not None and hasattr(bot_app, 'bot') and bot_app.bot is not None:
+                if hasattr(bot_app.bot, 'request') and hasattr(bot_app.bot.request, '_client'):
+                    try:
+                        await bot_app.bot.request._client.aclose()
+                    except Exception:
+                        pass
+        except Exception:
             pass
-        except Exception as close_e:
-            logger.warning(f"Error closing HTTP client: {close_e}")
 
 @app.route("/debug")
 def debug():
@@ -560,15 +626,7 @@ async def set_webhook_manually(webhook_url):
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
-async def process_update_async(bot_app, update, update_id):
-    """Process update asynchronously"""
-    try:
-        await bot_app.process_update(update)
-        logger.info(f"✅ Update {update_id} processed successfully")
-    except Exception as e:
-        logger.error(f"❌ Error processing update {update_id}: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
+# Removed unused process_update_async function
 
 def main():
     """Main initialization function - only run in development"""

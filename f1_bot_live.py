@@ -1903,19 +1903,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🏠 Ana Menyuya Qayıt", callback_data="back_to_menu")]
             ])
             if isinstance(query.message, Message):
-                try:
-                    await query.edit_message_text(
-                        message,
-                        parse_mode="Markdown",
-                        reply_markup=schedule_keyboard
-                    )
-                except Exception as e:
-                    logger.warning(f"Could not edit message, sending new: {e}")
-                    await query.message.reply_text(
-                        message,
-                        parse_mode="Markdown",
-                        reply_markup=schedule_keyboard
-                    )
+                await query.message.reply_text(
+                    message,
+                    parse_mode="Markdown",
+                    reply_markup=schedule_keyboard
+                )
             return
         elif query.data == "calendar":
             # Fetch and display the F1 season calendar
@@ -1957,19 +1949,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup = InlineKeyboardMarkup(keyboard)
 
                     if isinstance(query.message, Message):
-                        try:
-                            await query.edit_message_text(
-                                message,
-                                parse_mode="Markdown",
-                                reply_markup=reply_markup
-                            )
-                        except Exception as e:
-                            logger.warning(f"Could not edit message, sending new: {e}")
-                            await query.message.reply_text(
-                                message,
-                                parse_mode="Markdown",
-                                reply_markup=reply_markup
-                            )
+                        # Always send new message instead of editing
+                        await query.message.reply_text(
+                            message,
+                            parse_mode="Markdown",
+                            reply_markup=reply_markup
+                        )
                     return
             except Exception as e:
                 logger.error(f"Error refreshing live data: {e}")
@@ -2021,21 +2006,13 @@ Bu bot Formula 1 yarışları haqqında məlumat verir.
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             message = f"{TRANSLATIONS['menu_title']}\n\n{TRANSLATIONS['menu_text']}"
-            # For menu, use the full keyboard instead of back button
+            # Always send new message instead of editing
             if isinstance(query.message, Message):
-                try:
-                    await query.edit_message_text(
-                        message,
-                        reply_markup=reply_markup,
-                        parse_mode="Markdown"
-                    )
-                except Exception as e:
-                    logger.warning(f"Could not edit message, sending new: {e}")
-                    await query.message.reply_text(
-                        message,
-                        reply_markup=reply_markup,
-                        parse_mode="Markdown"
-                    )
+                await query.message.reply_text(
+                    message,
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
             return  # Don't add back button for menu
         else:
             message = TRANSLATIONS["unknown_command"]
@@ -2048,22 +2025,13 @@ Bu bot Formula 1 yarışları haqqında məlumat verir.
         [InlineKeyboardButton("🏠 Ana Menyuya Qayıt", callback_data="back_to_menu")]
     ])
 
-    # Edit the original message with the result and back button
+    # Always send new message instead of editing
     if isinstance(query.message, Message):
-        try:
-            await query.edit_message_text(
-                message,
-                parse_mode="Markdown",
-                reply_markup=back_keyboard
-            )
-        except Exception as e:
-            # Fallback to sending a new message if edit fails
-            logger.warning(f"Could not edit message, sending new: {e}")
-            await query.message.reply_text(
-                message,
-                parse_mode="Markdown",
-                reply_markup=back_keyboard
-            )
+        await query.message.reply_text(
+            message,
+            parse_mode="Markdown",
+            reply_markup=back_keyboard
+        )
 
 
 # Command handlers
@@ -2138,8 +2106,10 @@ async def live_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             live_data = await get_optimized_live_timing()
 
             if not live_data:
-                await loading_msg.edit_text(
-                    "❌ Canlı vaxt məlumatları mövcud deyil\n\n🔴 Canlı vaxt yalnız F1 yarış həftəsonlarında mövcuddur.\n\n📊 Canlı vaxt göstərir:\n• Sürücülərin mövqeləri\n• Interval vaxtları\n• Ən yaxşı dövrə vaxtları\n• Təkər məlumatları\n• Hər çağırışda yenilənən məlumatlar\n\nAlternativlər:\n• /nextrace - Gələn yarış və hava proqnozu\n• /lastrace - Son sessiya nəticələri\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium"
+                # Send new message instead of editing
+                await update.message.reply_text(
+                    "❌ Canlı vaxt məlumatları mövcud deyil\n\n🔴 Canlı vaxt yalnız F1 yarış həftəsonlarında mövcuddur.\n\n📊 Canlı vaxt göstərir:\n• Sürücülərin mövqeləri\n• Interval vaxtları\n• Ən yaxşı dövrə vaxtları\n• Təkər məlumatları\n• Hər çağırışda yenilənən məlumatlar\n\nAlternativlər:\n• /nextrace - Gələn yarış və hava proqnozu\n• /lastrace - Son sessiya nəticələri\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium",
+                    parse_mode="Markdown"
                 )
                 return
 
@@ -2153,7 +2123,8 @@ async def live_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            await loading_msg.edit_text(
+            # Send new message instead of editing
+            await update.message.reply_text(
                 live_message,
                 parse_mode="Markdown",
                 reply_markup=reply_markup
@@ -2161,8 +2132,10 @@ async def live_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
             logger.error(f"Error in live_cmd: {e}")
-            await loading_msg.edit_text(
-                f"❌ Xəta: {str(e)}\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium"
+            # Send new message instead of editing
+            await update.message.reply_text(
+                f"❌ Xəta: {str(e)}\n\nℹ️ Playwright quraşdırmaq üçün: pip install playwright && playwright install chromium",
+                parse_mode="Markdown"
             )
 
 
