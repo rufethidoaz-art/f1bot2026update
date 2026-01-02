@@ -35,6 +35,7 @@ app = Flask(__name__)
 
 BOT_APP = None
 WEBHOOK_SET = False  # CRITICAL: Prevents repeated webhook attempts
+BOT_INITIALIZED = False  # Track if bot was ever initialized
 
 # Event loop management for serverless environment
 UPDATE_LOOP = None
@@ -208,6 +209,7 @@ async def setup_bot():
         logger.info("Creating Application builder with custom HTTPX client...")
     
         # Use the custom HTTPX client with increased connection pool size
+        # Create fresh instance for each bot setup to avoid event loop issues
         request_instance = CustomHTTPXRequest(
             connection_pool_size=100,
             read_timeout=30,
@@ -244,12 +246,17 @@ async def setup_bot():
 
 async def initialize_bot_app():
     """Initialize bot application and set webhook with flood control handling"""
-    global BOT_APP, WEBHOOK_SET
-    
-    # CRITICAL: Skip initialization if already done
-    if WEBHOOK_SET:
-        logger.info("✅ Bot already initialized, skipping webhook setup")
-        return True
+    global BOT_APP, WEBHOOK_SET, BOT_INITIALIZED
+
+    # CRITICAL: Skip webhook setup if already done, but allow fresh bot creation
+    if WEBHOOK_SET and BOT_INITIALIZED:
+        logger.info("✅ Webhook already set, creating fresh bot application")
+        # Still create fresh bot app but skip webhook setup
+        bot_app = await setup_bot()
+        if bot_app:
+            BOT_APP = bot_app
+            return True
+        return False
     
     try:
         # Setup bot application
@@ -260,17 +267,18 @@ async def initialize_bot_app():
             
         await bot_app.initialize()
         BOT_APP = bot_app
+        BOT_INITIALIZED = True
         logger.info("✅ Bot application initialized successfully")
-        
+
         # CRITICAL: Check if webhook is already set BEFORE trying to set it
         webhook_url = get_webhook_url()
         bot = bot_app.bot
-        
+
         try:
             # Check current webhook status
             webhook_info = await bot.get_webhook_info()
             current_url = webhook_info.url
-            
+
             if current_url and current_url == webhook_url:
                 logger.info(f"✅ Webhook already set to correct URL: {webhook_url}")
                 WEBHOOK_SET = True
@@ -279,18 +287,18 @@ async def initialize_bot_app():
                 logger.info(f"🔄 Webhook exists but wrong URL. Current: {current_url}, Needed: {webhook_url}")
             else:
                 logger.info("🆕 No webhook set, will set new one")
-                
+
         except Exception as e:
             if "webhook is not set" in str(e).lower():
                 logger.info("🆕 No existing webhook found")
             else:
                 logger.warning(f"⚠️ Could not check webhook status: {e}")
-         
+
         # CRITICAL: Only set webhook if not already set
         try:
             logger.info(f"🔧 Setting webhook to: {webhook_url}")
             result = await bot.set_webhook(url=webhook_url)
-             
+
             if result:
                 WEBHOOK_SET = True
                 logger.info(f"✅ Webhook successfully set to: {webhook_url}")
@@ -298,7 +306,7 @@ async def initialize_bot_app():
             else:
                 logger.error("❌ Webhook set returned False")
                 return False
-                 
+
         except Exception as e:
             # CRITICAL: Handle flood control gracefully
             error_str = str(e)
@@ -359,12 +367,12 @@ def webhook():
     mark_update_processed(update_id)
 
     try:
-        if BOT_APP is None:
-            logger.info("Bot not initialized, setting up...")
-            success = asyncio.run(initialize_bot_app())
-            if not success:
-                logger.error("❌ Failed to initialize bot")
-                return jsonify({"status": "error", "message": "Bot initialization failed - check logs for details"}), 500
+        # Create fresh bot application for each request to avoid event loop conflicts
+        logger.info("Creating fresh bot application for this request...")
+        success = asyncio.run(initialize_bot_app())
+        if not success:
+            logger.error("❌ Failed to initialize bot")
+            return jsonify({"status": "error", "message": "Bot initialization failed - check logs for details"}), 500
 
         bot_app = BOT_APP
         if bot_app is None or not hasattr(bot_app, "bot") or bot_app.bot is None:

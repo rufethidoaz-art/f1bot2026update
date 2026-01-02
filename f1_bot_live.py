@@ -60,11 +60,21 @@ from telegram.request import HTTPXRequest
 class CustomHTTPXRequest(HTTPXRequest):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Create a new client for each request to avoid event loop conflicts
-        self._client = httpx.AsyncClient(
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
-            timeout=httpx.Timeout(30.0, connect=10.0, read=30.0, write=30.0),
-        )
+        # Ensure client is properly initialized
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
+                timeout=httpx.Timeout(30.0, connect=10.0, read=30.0, write=30.0),
+            )
+
+    async def do_request(self, url, method, request_data=None, files=None):
+        """Override do_request to ensure client is initialized"""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=50),
+                timeout=httpx.Timeout(30.0, connect=10.0, read=30.0, write=30.0),
+            )
+        return await super().do_request(url, method, request_data, files)
 
     async def close(self):
         """Close the HTTP client"""
