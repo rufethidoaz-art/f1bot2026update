@@ -317,13 +317,13 @@ async def initialize_bot_app():
         return True
 
     try:
-        # Setup bot application
+        # Setup bot application (this already calls initialize())
         bot_app = await setup_bot()
         if not bot_app:
             logger.error("❌ Bot setup failed - no bot application")
             return False
 
-        await bot_app.initialize()
+        # Don't call initialize() again - setup_bot() already did this
         BOT_APP = bot_app
         BOT_INITIALIZED = True
         logger.info("✅ Bot application initialized successfully")
@@ -490,22 +490,12 @@ def process_update_in_background(bot_app, update, update_id):
 async def process_update_isolated(bot_app, update, update_id):
     """Process update in an isolated async context to prevent event loop conflicts"""
     try:
-        # Ensure bot_app is properly initialized
+        # Ensure bot_app is provided
         if bot_app is None:
             logger.error(f"❌ Bot app is None for update {update_id}")
             return
-            
-        # Check if application is initialized
-        if not hasattr(bot_app, '_initialized') or not bot_app._initialized:
-            logger.warning(f"⚠️ Bot app not initialized for update {update_id}, initializing...")
-            try:
-                await bot_app.initialize()
-                logger.info(f"✅ Bot app initialized for update {update_id}")
-            except Exception as init_e:
-                logger.error(f"❌ Failed to initialize bot app for update {update_id}: {init_e}")
-                return
         
-        # Process the update
+        # Process the update (bot should already be initialized)
         await bot_app.process_update(update)
         logger.info(f"✅ Update {update_id} processed successfully")
         
@@ -519,13 +509,7 @@ async def process_update_isolated(bot_app, update, update_id):
         if "Event loop is closed" in error_str:
             logger.warning("Event loop closed error - this should not happen with proper initialization")
         elif "not initialized" in error_str.lower():
-            logger.warning("Application not initialized - attempting to initialize and retry")
-            try:
-                await bot_app.initialize()
-                await bot_app.process_update(update)
-                logger.info(f"✅ Update {update_id} processed successfully after initialization")
-            except Exception as retry_e:
-                logger.error(f"❌ Retry failed for update {update_id}: {retry_e}")
+            logger.warning("Application not initialized - this should not happen")
     finally:
         # Clean up HTTP clients to prevent resource leaks
         try:
