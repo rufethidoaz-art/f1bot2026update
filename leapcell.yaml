@@ -4,7 +4,7 @@ runtime: python
 build_command: |
   pip install -r requirements.txt
   playwright install chromium --with-deps
-start_command: gunicorn -w 1 -b :8080 app:app --timeout 300 --graceful-timeout 120 --max-requests 5000 --max-requests-jitter 1000
+start_command: gunicorn -w 1 -b :8080 app:app --worker-class gevent --timeout 300 --graceful-timeout 120 --max-requests 5000 --max-requests-jitter 1000
 port: 8080
 
 # Environment variables (set these in Leapcell dashboard)
