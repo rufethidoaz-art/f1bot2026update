@@ -491,27 +491,36 @@ async def process_update_async(bot_app, update, update_id):
         logger.error(f"Full traceback: {traceback.format_exc()}")
 
 def main():
-    """Main initialization function"""
+    """Main initialization function - only run in development"""
     logger.info("🚀 Starting F1 Telegram Bot initialization...")
 
-    # Initialize bot on startup
-    try:
-        success = asyncio.run(initialize_bot_app())
-        if success:
-            logger.info("✅ Bot initialized successfully on startup!")
-        else:
-            logger.warning("⚠️ Bot initialization failed on startup - will try on first request")
-    except Exception as e:
-        logger.error(f"❌ Startup initialization error: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
+    # Only initialize on startup if not in production/serverless environment
+    # In serverless environments, initialization should happen on first webhook request
+    if os.getenv("FLASK_ENV") == "development" or not os.getenv("WEBHOOK_URL"):
+        try:
+            success = asyncio.run(initialize_bot_app())
+            if success:
+                logger.info("✅ Bot initialized successfully on startup!")
+            else:
+                logger.warning("⚠️ Bot initialization failed on startup - will try on first request")
+        except Exception as e:
+            logger.error(f"❌ Startup initialization error: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+    else:
+        logger.info("🏭 Serverless environment detected - skipping startup initialization")
 
 # Initialize bot when Flask app starts (for Gunicorn compatibility)
 def init_app():
-    with app.app_context():
-        main()
+    # Only initialize if we're in development or if explicitly requested
+    # In production serverless, let webhook requests handle initialization
+    if os.getenv("FLASK_ENV") == "development" or os.getenv("FORCE_INIT", "").lower() == "true":
+        with app.app_context():
+            main()
+    else:
+        logger.info("🏭 Production serverless mode - initialization deferred to first webhook request")
 
-# Call init_app when this module is imported
+# Call init_app when this module is imported - but only in appropriate environments
 init_app()
 
 if __name__ == "__main__":
