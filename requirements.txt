@@ -1,13 +1,8 @@
-# F1 Telegram Bot - Playwright Version for Leapcell
-# Optimized for Leapcell serverless deployment with live timing
+# F1 Telegram Bot - Vercel Serverless Version
+# Optimized for Vercel serverless deployment with live timing
 
 # Core Bot Framework
 python-telegram-bot==20.7
-
-# Web Framework
-flask==3.0.3
-gunicorn==21.2.0
-gevent==23.9.1
 
 # HTTP Requests
 requests==2.32.3
@@ -15,9 +10,6 @@ urllib3==2.0.7
 
 # Environment Management
 python-dotenv==1.0.1
-
-# Flask async support for webhook processing
-flask[async]==3.0.3
 
 # Web Scraping (CRITICAL FOR LIVE TIMING)
 playwright==1.40.0
@@ -33,9 +25,8 @@ orjson==3.9.10
 # HTTP Client for Telegram
 httpx==0.25.2
 
-# Async Support
-asyncio-mqtt==0.16.1
-nest_asyncio==1.6.0
-
 # Logging
 structlog==23.2.0
+
+# Vercel specific - no Flask/gunicorn needed for serverless
+# The bot runs as serverless functions

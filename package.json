@@ -1,0 +1,11 @@
+{
+  "name": "f1-telegram-bot-vercel",
+  "version": "2.0.0",
+  "description": "F1 Telegram Bot optimized for Vercel serverless deployment",
+  "scripts": {
+    "build": "bash vercel-build.sh",
+    "dev": "python app.py"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
