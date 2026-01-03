@@ -36,14 +36,8 @@
       "dest": "api/set_webhook.py"
     }
   ],
-  "build": {
-    "env": {
-      "PLAYWRIGHT_BROWSERS_PATH": "/tmp/playwright",
-      "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "0"
-    }
-  },
   "env": {
-    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
-    "WEBHOOK_URL": "@webhook_url"
+    "TELEGRAM_BOT_TOKEN": "${TELEGRAM_BOT_TOKEN}",
+    "WEBHOOK_URL": "${WEBHOOK_URL}"
   }
 }
