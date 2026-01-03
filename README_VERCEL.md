@@ -29,12 +29,17 @@ vercel
 
 ## ⚙️ Environment Variables
 
-Set these in your Vercel project:
+Set these in Vercel dashboard (Project Settings → Environment Variables):
 
-```bash
-TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
-WEBHOOK_URL=https://your-project.vercel.app/webhook
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token from BotFather | `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
+| `WEBHOOK_URL` | Your Vercel webhook URL (set after deployment) | `https://your-project.vercel.app/webhook` |
+
+**Important Notes:**
+- Enter the actual values, not `@variable_name` syntax
+- `WEBHOOK_URL` can be set after your first deployment
+- Keep `TELEGRAM_BOT_TOKEN` secret and never commit it to git
 
 ## 📁 Project Structure
 

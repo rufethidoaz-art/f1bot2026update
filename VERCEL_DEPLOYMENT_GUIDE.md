@@ -60,14 +60,18 @@ vercel
 
 ### Step 3: Configure Environment Variables
 
-In Vercel dashboard, go to Project Settings → Environment Variables and add:
+In Vercel dashboard, go to **Project Settings → Environment Variables** and add:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
-| `WEBHOOK_URL` | Your Vercel webhook URL | `https://your-project.vercel.app/webhook` |
+| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token from BotFather | `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
+| `WEBHOOK_URL` | Your Vercel webhook URL (set after deployment) | `https://your-project.vercel.app/webhook` |
 
-**Note**: Your webhook URL will be available after deployment in the format: `https://your-project.vercel.app/webhook`
+**Important**:
+- Enter the actual values directly - do NOT use `@variable_name` syntax
+- The `WEBHOOK_URL` will be available after your first deployment
+- You can update it later if your project name changes
+- Keep your bot token secret!
 
 ### Step 4: Set Up Playwright (Important!)
 
