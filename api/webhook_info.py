@@ -13,13 +13,14 @@ def get_webhook_url():
 def handler(event, context):
     """Webhook info endpoint - Vercel serverless function"""
     return {
-        'statusCode': HTTPStatus.OK,
-        'headers': {
-            'Content-Type': 'application/json',
-        },
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json'},
         'body': json.dumps({
             "webhook_url": get_webhook_url(),
-            "bot_initialized": False,  # Will be managed globally in production
+            "bot_initialized": False,
             "timestamp": datetime.now().isoformat()
         })
     }
+
+# Vercel compatibility
+app = handler

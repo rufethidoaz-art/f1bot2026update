@@ -43,10 +43,8 @@ def handler(event, context):
         import_status["playwright"] = f"ERROR: {str(e)}"
     
     return {
-        'statusCode': HTTPStatus.OK,
-        'headers': {
-            'Content-Type': 'application/json',
-        },
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json'},
         'body': json.dumps({
             "bot_token_set": bool(get_bot_token()),
             "version": "2.0.0",
@@ -60,3 +58,6 @@ def handler(event, context):
             "timestamp": datetime.now().isoformat()
         })
     }
+
+# Vercel compatibility
+app = handler

@@ -298,7 +298,43 @@ async def webhook_handler(event):
 def handler(event, context):
     """Vercel serverless function entry point"""
     import asyncio
-    return asyncio.run(webhook_handler(event))
+    import json
+    
+    # Parse the incoming request
+    if event.get('httpMethod') != 'POST':
+        return {
+            'statusCode': 405,
+            'body': 'Method Not Allowed'
+        }
+    
+    # Get JSON body
+    body = event.get('body')
+    if not body:
+        return {
+            'statusCode': 400,
+            'body': 'Bad Request: Empty body'
+        }
+    
+    try:
+        json_data = json.loads(body)
+    except json.JSONDecodeError:
+        return {
+            'statusCode': 400,
+            'body': 'Bad Request: Invalid JSON'
+        }
+    
+    # Process the webhook
+    try:
+        result = asyncio.run(webhook_handler(event))
+        return result
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({"status": "error", "message": str(e)})
+        }
+
+# Vercel compatibility
+app = handler
 
 # For local testing
 if __name__ == "__main__":

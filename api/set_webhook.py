@@ -41,7 +41,7 @@ def handler(event, context):
     
     if not webhook_url:
         return {
-            'statusCode': HTTPStatus.BAD_REQUEST,
+            'statusCode': 400,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({
                 "status": "error",
@@ -53,7 +53,7 @@ def handler(event, context):
         success = asyncio.run(set_webhook_manually(webhook_url))
         if success:
             return {
-                'statusCode': HTTPStatus.OK,
+                'statusCode': 200,
                 'headers': {'Content-Type': 'application/json'},
                 'body': json.dumps({
                     "status": "success",
@@ -63,7 +63,7 @@ def handler(event, context):
             }
         else:
             return {
-                'statusCode': HTTPStatus.INTERNAL_SERVER_ERROR,
+                'statusCode': 500,
                 'headers': {'Content-Type': 'application/json'},
                 'body': json.dumps({
                     "status": "error",
@@ -72,10 +72,13 @@ def handler(event, context):
             }
     except Exception as e:
         return {
-            'statusCode': HTTPStatus.INTERNAL_SERVER_ERROR,
+            'statusCode': 500,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({
                 "status": "error",
                 "message": str(e)
             })
         }
+
+# Vercel compatibility
+app = handler
