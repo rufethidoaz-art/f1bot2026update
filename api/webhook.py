@@ -295,9 +295,10 @@ async def webhook_handler(event):
         }
 
 # Vercel expects the handler to be exported as 'default'
-async def default(event, context):
+def handler(event, context):
     """Vercel serverless function entry point"""
-    return await webhook_handler(event)
+    import asyncio
+    return asyncio.run(webhook_handler(event))
 
 # For local testing
 if __name__ == "__main__":

@@ -10,8 +10,8 @@ from datetime import datetime
 def get_webhook_url():
     return os.getenv("WEBHOOK_URL", "NOT_SET")
 
-async def default(event, context):
-    """Webhook info endpoint"""
+def handler(event, context):
+    """Webhook info endpoint - Vercel serverless function"""
     return {
         'statusCode': HTTPStatus.OK,
         'headers': {

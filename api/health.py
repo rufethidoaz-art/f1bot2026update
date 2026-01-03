@@ -13,8 +13,8 @@ def get_webhook_url():
 def get_bot_token():
     return "SET" if os.getenv("TELEGRAM_BOT_TOKEN") else "NOT_SET"
 
-async def default(event, context):
-    """Health check endpoint"""
+def handler(event, context):
+    """Health check endpoint - Vercel serverless function"""
     return {
         'statusCode': HTTPStatus.OK,
         'headers': {

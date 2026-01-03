@@ -6,8 +6,8 @@ import json
 from http import HTTPStatus
 from datetime import datetime
 
-async def default(event, context):
-    """Main endpoint"""
+def handler(event, context):
+    """Main endpoint - Vercel serverless function"""
     return {
         'statusCode': HTTPStatus.OK,
         'headers': {

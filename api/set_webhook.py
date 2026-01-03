@@ -33,8 +33,10 @@ async def set_webhook_manually(webhook_url):
         print(f"Error setting webhook: {e}")
         return False
 
-async def default(event, context):
-    """Set webhook endpoint"""
+def handler(event, context):
+    """Set webhook endpoint - Vercel serverless function"""
+    import asyncio
+    
     webhook_url = get_webhook_url()
     
     if not webhook_url:
@@ -48,7 +50,7 @@ async def default(event, context):
         }
     
     try:
-        success = await set_webhook_manually(webhook_url)
+        success = asyncio.run(set_webhook_manually(webhook_url))
         if success:
             return {
                 'statusCode': HTTPStatus.OK,

@@ -17,8 +17,8 @@ def get_bot_token():
 def get_webhook_url():
     return os.getenv("WEBHOOK_URL", "NOT_SET")
 
-async def default(event, context):
-    """Debug endpoint"""
+def handler(event, context):
+    """Debug endpoint - Vercel serverless function"""
     import_status = {}
     
     try:
